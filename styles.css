@@ -803,8 +803,9 @@ tr:hover td {
   font-size: 13px;
 }
 #md input {
-  width: 1%00;
+  width: 100%;
   margin-top: 4px;
+  box-sizing: border-box;
 }
 #ts {
   position: fixed;
@@ -7137,6 +7138,9 @@ table.pk.full {
   #pa h4 {
     margin: 10px 0 4px;
   }
+  #capture-protection-curtain {
+    display: none !important;
+  }
   #pa .lab-report-cl .lab-report-table .lab-report-result,
   #pa .lab-report-cl .lab-report-table .lab-report-result.in-range {
     color: #000;
@@ -7527,7 +7531,7 @@ body.sbc aside {
 .patient-table-wrap {
   width: 100%;
   min-width: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -7761,10 +7765,11 @@ table.ptb .pn > div {
   }
   .patient-table-wrap {
     max-width: 100%;
+    overflow-x: hidden;
   }
   table.ptb {
-    width: 1320px;
-    min-width: 1320px;
+    width: 100%;
+    min-width: 0;
     table-layout: fixed;
   }
   table.ptb th {
@@ -12248,9 +12253,4 @@ body.capture-protection-obscured #app,
 body.capture-protection-obscured #md,
 body.capture-protection-obscured #ts {
   filter: blur(12px);
-}
-@media print {
-  #capture-protection-curtain {
-    display: none !important;
-  }
 }

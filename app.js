@@ -519,6 +519,7 @@ function userManagementHtml(){
   const roles=[...(D.user.role=='admin'?[['admin','Administrator']]:[]),['doctor','Doctor'],['staff','Staff'],['receptionist','Receptionist']];
   const selectedRole=editing?editing.role:'staff';
   const form=userFormOpen?`<form id="user-form" class="card user-management-form"><h3>${editing?'Edit user':'Create user'}</h3><div class="user-form-fields"><label>Name<input class="in" name="name" value="${esc(editing&&editing.name||'')}" required></label><label>Email<input class="in" type="email" name="email" value="${esc(editing&&editing.email||'')}" required></label><label>Role<select class="in" name="role" id="user-role">${roles.map(([role,label])=>`<option value="${role}" ${selectedRole==role?'selected':''}>${label}</option>`).join('')}</select></label><label>${editing?'New password (leave blank to keep current)':'Password (at least 8 characters)'}<input class="in" type="password" name="password" ${editing?'':'required minlength="8"'}></label></div><p class="user-role-note" id="user-admin-role-note" ${selectedRole=='admin'?'':'hidden'}>Administrator accounts have full access; custom permissions do not apply.</p><div id="user-permission-wrap" ${selectedRole=='admin'?'hidden':''}><h4>Custom permissions</h4>${permissionEditor(editing?editing.permissions:blankPermissions())}</div><div class="tools"><button class="btn" type="button" data-a="usercancel">Cancel</button><button class="btn p" type="submit">${editing?'Save user':'Create user'}</button></div></form>`:'';
+  const permissionsPreview = !userFormOpen && D.user.role == 'admin' ? `<div class="card user-management-permissions"><h4>Custom permissions</h4>${permissionEditor(blankPermissions())}</div>` : '';
   const roleLabels=Object.fromEntries(roles);
   const rows=D.users.map(item=>{
     const actions=item.role=='admin'
@@ -526,7 +527,7 @@ function userManagementHtml(){
       :`${canAccess('user_management','edit')?`<button class="btn s" data-a="useredit:${item.id}">Edit</button> `:''}${canAccess('user_management','delete')?`<button class="btn s r" data-a="userdelete:${item.id}">Delete</button>`:''}`;
     return `<tr><td>${esc(item.name)}</td><td>${esc(item.email)}</td><td>${roleLabels[item.role]||'Staff'}</td><td>${actions}</td></tr>`;
   }).join('')||'<tr><td colspan="4">No users found.</td></tr>';
-  return `<section class="user-management-section"><header><div><h2>User management</h2><p>Create accounts, assign roles, and configure permissions.</p></div>${canAccess('user_management','create')?'<button class="btn p" data-a="useradd">+ Create user</button>':''}</header>${form}${canAccess('user_management','view')?`<div class="card"><table class="user-management-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}</section>`;
+  return `<section class="user-management-section"><header><div><h2>User management</h2><p>Create accounts, assign roles, and configure permissions.</p></div>${canAccess('user_management','create')?'<button class="btn p" data-a="useradd">+ Create user</button>':''}</header>${form}${permissionsPreview}${canAccess('user_management','view')?`<div class="card"><table class="user-management-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}</section>`;
 }
 function leavesPage(){
   const rows=ft('leaves'),statusClass={Pending:'b',Approved:'',Rejected:'x'};
@@ -895,8 +896,8 @@ document.addEventListener('pointermove',event=>{
 document.addEventListener('pointerup',()=>{templateDrag=null});
 document.addEventListener('change',event=>{
   const target=event.target;
-  if(target.matches('[data-template-grid]')){const canvas=document.querySelector('[data-template-canvas]');if(canvas)canvas.classList.toggle('grid-hidden',!target.checked);return}
-  if(!target.matches('[data-template-setting],[data-template-shared],[data-template-property],[data-template-column]'))return;
+  if(matchesSelector(target,'[data-template-grid]')){const canvas=document.querySelector('[data-template-canvas]');if(canvas)canvas.classList.toggle('grid-hidden',!target.checked);return}
+  if(!matchesSelector(target,'[data-template-setting],[data-template-shared],[data-template-property],[data-template-column]'))return;
   if(target.hasAttribute('data-template-setting')||target.hasAttribute('data-template-shared'))printTemplateEditorValues();
   else{
     const item=templateDraft&&templateDraft.elements.find(candidate=>candidate.id==templateSelection);if(!item)return;
@@ -913,7 +914,7 @@ function modal(t,F,V,cb,opts={}){$('#mf').className=opts.className||'';$('#mf').
 function updateMedicineStock(index){const m=D.med[index];if(!m)return toast('Medicine not found');modal('Update Stock',[['In Stock','stock','number']],{stock:Number(m.stock)||0},async o=>{const stock=Number(o.stock);if(!Number.isInteger(stock)||stock<0)throw new Error('Stock must be a non-negative whole number');await api('PUT','medicines/'+m.id,{stock})},{submit:'Update Stock'});$('#mf [name="stock"]').required=true}
 function viewMedicineComposition(index){const m=D.med[index];if(!m)return toast('Medicine not found');$('#mf').innerHTML=`<h3 style="margin:0 0 12px">${esc(m.name)} — Composition</h3><div class="medicine-composition-view">${m.composition?esc(m.composition):'<span class="mu">No composition has been added.</span>'}</div><div class="tools" style="justify-content:flex-end;margin-top:16px"><button type="button" class="btn p" data-a="close">Close</button></div>`;$('#md').classList.add('on')}
 async function printMedicineCode(index,kind){const m=D.med[index];if(!m)return toast('Medicine not found');try{const result=await api('GET',`medicines/${m.id}/code/${kind}`);if(!result||typeof result.svg!='string'||!result.svg.startsWith('<svg'))throw new Error('Could not generate the medicine code');printDoc(kind=='qr'?'Medicine QR Code':'Medicine Barcode',`<div class="medicine-code-label"><h2>${esc(m.name)}</h2>${result.svg}<p>Medicine ID: ${m.id}</p></div>`)}catch(error){toast(error.message)}}
-async function exportMedicineCodes(kind){const medicines=ft('med').map(([medicine])=>medicine);if(!medicines.length)return toast('No medicines to export');try{const response=await fetch(API_BASE+`/api/medicines/codes/${kind}`,{method:'POST',headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:JSON.stringify({ids:medicines.map(m=>m.id)})});if(response.status==401&&tok)logout();if(!response.ok){const error=await response.json().catch(()=>null);throw new Error(error&&error.error||'Could not export medicine codes')}const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.download=`medicine-${kind}-codes.svg`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){toast(error.message)}}
+async function exportMedicineCodes(kind){const medicines=ft('med').map(([medicine])=>medicine);if(!medicines.length)return toast('No medicines to export');try{const response=await fetch(API_BASE+`/api/medicines/codes/${kind}`,{method:'POST',headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:JSON.stringify({ids:medicines.map(m=>m.id)})});if(response.status==401&&tok)logout();if(!response.ok){const error=await response.json().catch(()=>null);throw new Error(error&&error.error||'Could not export medicine codes')}const url=URL.createObjectURL(await response.blob()),a=document.createElement('a');a.href=url;a.download=`medicine-${kind}-codes.svg`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(error){toast(normalizeRequestError(error))}}
 const FM={pt:[['Name','name'],['Age','age'],['Sex','sex'],['Phone','phone'],['Address','addr']],dr:[['Name','name'],['Role','role'],['ID','code'],['Phone','phone'],['Photo','photo','img']],echo:[['Name','name'],['Price (KHR)','price']]};
 let labFieldSequence=0;
 function labFieldRow(value={}){
@@ -1313,20 +1314,48 @@ function payrollPrint(id){
   if(typeof printDoc=='function')printDoc('Payslip',`<table class="pk">${rows.filter(([,v])=>v).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`);
 }
 let tok=null,needSetup=false;try{tok=localStorage.getItem('kt')}catch(e){}
-let captureWindowFocused=document.hasFocus(),captureDocumentVisible=document.visibilityState!='hidden';
+function documentHasFocus(){return typeof document !== 'undefined' && typeof document.hasFocus === 'function' ? document.hasFocus() : true;}
+function documentIsVisible(){return typeof document === 'undefined' || typeof document.visibilityState === 'undefined' ? true : document.visibilityState!='hidden';}
+function matchesSelector(target, selector){
+  if(!target||!selector)return false;
+  if(typeof target.matches === 'function')return target.matches(selector);
+  if(typeof target.closest === 'function')return !!target.closest(selector);
+  return false;
+}
+function normalizeRequestError(error){
+  const raw=error&&typeof error.message==='string'?error.message:String(error||'');
+  const msg=(raw||'').trim();
+  if(!msg)return 'Could not reach the server. Please check the backend connection and try again.';
+  if(/^(failed to fetch|networkerror when attempting to fetch resource|typeerror: failed to fetch)$/i.test(msg) || /fetch/i.test(msg) && /(failed|network|connection)/i.test(msg)){
+    return 'Could not reach the server. Please check the backend connection and try again.';
+  }
+  return msg;
+}
+let captureWindowFocused=documentHasFocus(),captureDocumentVisible=documentIsVisible();
 function syncCaptureProtection(){
   const curtain=$('#capture-protection-curtain');
   if(!curtain)return;
   const active=!!(tok&&D.user&&D.user.id!=null);
   const obscure=active&&(!captureWindowFocused||!captureDocumentVisible);
   curtain.hidden=!obscure;
-  document.body.classList.toggle('capture-protection-obscured',obscure);
+  if(document.body&&document.body.classList){document.body.classList.toggle('capture-protection-obscured',obscure);}
 }
 window.addEventListener('blur',()=>{captureWindowFocused=false;syncCaptureProtection()});
 window.addEventListener('focus',()=>{captureWindowFocused=true;syncCaptureProtection()});
-document.addEventListener('visibilitychange',()=>{captureDocumentVisible=document.visibilityState!='hidden';syncCaptureProtection()});
+document.addEventListener('visibilitychange',()=>{captureDocumentVisible=documentIsVisible();syncCaptureProtection()});
 const RS={pt:'patients',ap:'appointments',ipd:'ipd',dr:'doctors',payslips:'payslips',leaves:'leaves',expenses:'expenses',med:'medicines',sv:'services',lab:'labs',labcategories:'labcategories',echo:'echo',dx:'diagnoses',rx:'prescriptions',sy:'symptoms',ad:'addresses',sf:'files',ch:'chat'};
-async function api(m,u,b){const r=await fetch(API_BASE+'/api/'+u,{method:m,headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:b?JSON.stringify(b):undefined});let j=null;try{j=await r.json()}catch(e){}if(r.status==401&&tok&&u!='auth/login')logout();if(!r.ok)throw new Error(j&&j.error||'Request failed');return j}
+async function api(m,u,b){
+  try{
+    const r=await fetch(API_BASE+'/api/'+u,{method:m,headers:{'Content-Type':'application/json',...(tok?{Authorization:'Bearer '+tok}:{})},body:b?JSON.stringify(b):undefined});
+    let j=null;try{j=await r.json()}catch(e){}
+    if(r.status==401&&tok&&u!='auth/login')logout();
+    if(!r.ok)throw new Error(j&&j.error||'Request failed');
+    if(typeof cal!='undefined'&&b&&typeof b.date=='string'&&['POST','PUT'].includes(m)&&['appointments','appointments/'].some(prefix=>String(u).startsWith(prefix))){const d=new Date(b.date);if(!Number.isNaN(d.getTime())){cal.d=d;cal.mode=cal.mode||'month';}}
+    return j;
+  }catch(error){
+    throw new Error(normalizeRequestError(error));
+  }
+}
 async function load(){
   D.user=await api('GET','auth/me');
   syncCaptureProtection();
@@ -1354,7 +1383,7 @@ async function load(){
 }
 function logout(){tok=null;syncCaptureProtection();try{localStorage.removeItem('kt')}catch(e){}$('#lg').style.display='grid'}
 function setLoginLoading(loading){const overlay=$('#login-loading'),button=$('#login-submit');if(overlay)overlay.hidden=!loading;if(button)button.disabled=loading;const login=$('#lg');if(login)login.setAttribute('aria-busy',String(loading))}
-async function doLogin(){const email=$('#em').value.trim(),password=$('#pw').value;setLoginLoading(true);try{if(needSetup){await api('POST','auth/setup',{email,password});needSetup=false}const r=await api('POST','auth/login',{email,password});tok=r.token;try{localStorage.setItem('kt',tok)}catch(e){}await load();$('#lg').style.display='none';render()}catch(e){toast(e.message)}finally{setLoginLoading(false)}}
+async function doLogin(){const email=$('#em').value.trim(),password=$('#pw').value;setLoginLoading(true);try{if(needSetup){await api('POST','auth/setup',{email,password});needSetup=false}const r=await api('POST','auth/login',{email,password});tok=r.token;try{localStorage.setItem('kt',tok)}catch(e){}await load();$('#lg').style.display='none';render()}catch(e){toast(normalizeRequestError(e))}finally{setLoginLoading(false)}}
 const run=p=>p.then(()=>load()).then(render).catch(e=>toast(e.message));
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el){const picker=$('.language-picker');if(picker&&!picker.contains(e.target))closeLanguagePicker();const node=e.target.closest('[data-template-id]');if(node){templateSelection=node.dataset.templateId;templateInspector='properties';render()}else if(e.target.closest('[data-template-canvas]')){templateSelection=null;templateInspector='properties';render()}return}e.preventDefault();const[a,x,y]=el.dataset.a.split(':');if(!actionAllowed(a,x))return toast('You do not have permission to do that.');
 if(a=='login')doLogin();else if(a=='logout')logout();
@@ -1453,7 +1482,7 @@ else if(a=='send'){const v=$('#cm').value.trim();if(v)run(api('POST','chat',{msg
 async function pick(file,k){if(!file)return;if(!/^image\//.test(file.type))return toast('Use a JPG, PNG or WebP picture');toast('Uploading…');
 try{const bmp=await createImageBitmap(file),sc=Math.min(1,(['banner','footer_banner'].includes(k)?1300:480)/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(bmp.width*sc));c.height=Math.max(1,Math.round(bmp.height*sc));const g=c.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,c.width,c.height);g.drawImage(bmp,0,0,c.width,c.height);
 const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.85)),r=await fetch(API_BASE+'/api/uploads',{method:'POST',headers:{'Content-Type':'image/jpeg',Authorization:'Bearer '+tok},body:blob}),j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Upload failed');
-$('#pk_'+k).value=j.photo;$('#pv_'+k).src=API_BASE+'/uploads/'+j.photo;$('#pv_'+k).hidden=false;if(k=='photo'&&$('#doctor-photo-placeholder'))$('#doctor-photo-placeholder').hidden=true;if(k=='photo'&&$('#medicine-photo-placeholder'))$('#medicine-photo-placeholder').hidden=true;$('#ts').style.display='none'}catch(e){toast(e.message)}}
+$('#pk_'+k).value=j.photo;$('#pv_'+k).src=API_BASE+'/uploads/'+j.photo;$('#pv_'+k).hidden=false;if(k=='photo'&&$('#doctor-photo-placeholder'))$('#doctor-photo-placeholder').hidden=true;if(k=='photo'&&$('#medicine-photo-placeholder'))$('#medicine-photo-placeholder').hidden=true;$('#ts').style.display='none'}catch(e){toast(normalizeRequestError(e))}}
 document.addEventListener('submit',e=>{if(e.target.id=='medicine-form')medicineSave(e);else if(e.target.id=='user-form'){e.preventDefault();const form=e.target,fields=Object.fromEntries(new FormData(form)),role=fields.role||'staff',body={name:fields.name,email:fields.email,role};if(role!='admin'){const permissions=blankPermissions();Object.keys(PERMISSION_AREAS).forEach(area=>PERMISSION_ACTIONS.forEach(action=>{permissions[area][action]=!!form.elements[`permission_${area}_${action}`].checked}));body.permissions=permissions}if(fields.password)body.password=fields.password;const request=userEditId?api('PUT','users/'+userEditId,body):api('POST','users',body);request.then(()=>{userFormOpen=false;userEditId=null;return load()}).then(render).catch(error=>toast(error.message))}});
 document.addEventListener('change',e=>{if(e.target.id=='user-role'){const isAdmin=e.target.value=='admin';$('#user-permission-wrap').hidden=isAdmin;$('#user-admin-role-note').hidden=!isAdmin}});
 document.addEventListener('change',e=>{if(e.target.name=='footer_banner_mode')document.querySelectorAll('[data-footer-option]').forEach(section=>{section.hidden=section.dataset.footerOption!=e.target.value});const match=/^echo-image-file-(\d+)$/.exec(e.target.id||'');if(match)echoUploadImage(match[1],e.target.files[0]).finally(()=>{e.target.value=''})});
@@ -1508,4 +1537,4 @@ document.documentElement.lang=lang=='en'?'en':'km';syncLanguageToggle();tr(docum
   $('#lg').style.display='none';
   if(rt=='pd'&&typeof restorePatientPage=='function')await restorePatientPage();
   else render();
-}else{$('#lg').hidden=false;$('#lg').style.display='grid'}}catch(e){if(tok){$('#lg').style.display='none';render();toast(e.message)}else{$('#lg').hidden=false;$('#lg').style.display='grid'}}finally{$('#startup-loading').hidden=true}})();
+}else{$('#lg').hidden=false;$('#lg').style.display='grid'}}catch(e){if(tok){$('#lg').style.display='none';render();toast(normalizeRequestError(e))}else{$('#lg').hidden=false;$('#lg').style.display='grid'}}finally{$('#startup-loading').hidden=true}})();

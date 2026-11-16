@@ -25,15 +25,21 @@ const fCb = (l, k, on, v = '1') => `<label class="cb"><input type="checkbox" nam
 const fSel = (l, k, v, opts) => `<label class="fl">${l}<select class="in" name="${k}">${opts.map((o) => { const [val, tx] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(val)}" ${val == v ? 'selected' : ''}>${tx}</option>`; }).join('')}</select></label>`;
 const fld = (l, k, ty, v, o) => ty == 'sel' ? fSel(l, k, v, o) : ty == 'ta' ? fTa(l, k, v) : fIn(l, k, v ?? '', ty);
 const readFormValue = (form, ...keys) => {
-  const sources = [];
-  if (form && form.__m && typeof form.__m == 'object') sources.push(form.__m);
-  try { const data = new FormData(form); if (data && typeof data.get == 'function') sources.push(data); } catch (error) {}
-  for (const source of sources) {
+  if (form && form.__m && typeof form.__m == 'object') {
     for (const key of keys) {
-      const value = typeof source.get == 'function' ? source.get(key) : source[key];
+      const value = form.__m[key];
       if (value !== null && value !== undefined && value !== '') return value;
     }
   }
+  try {
+    const data = new FormData(form);
+    if (data && typeof data.get == 'function') {
+      for (const key of keys) {
+        const value = data.get(key);
+        if (value !== null && value !== undefined && value !== '') return value;
+      }
+    }
+  } catch (error) {}
   for (const key of keys) {
     const value = form && form[key];
     if (value !== null && value !== undefined && value !== '') return value;
@@ -41,6 +47,8 @@ const readFormValue = (form, ...keys) => {
   return '';
 };
 function openForm(title, body, save, o = {}) {
+  const g = typeof globalThis !== 'undefined' ? globalThis : (typeof window !== 'undefined' ? window : null);
+  if (g) g.__save = save;
   const f = $('#mf'); f.className = o.cls || 'wide';
   const heading = o.close ? `<div class="operation-form-heading"><h3>${title}</h3><button type="button" class="btn s" data-a="close" aria-label="${esc(o.closeLabel || 'Close')}">×</button></div>` : `<h3 style="margin:0 0 8px">${title}</h3>`;
   f.innerHTML = `${heading}${body}${o.hideFooter ? '' : `<div class="tools fb" style="justify-content:flex-end">${o.extra || ''}${o.hideCancel ? '' : `<button type="button" class="btn" data-a="close">${o.cancelLabel || T('Cancel')}</button>`}${o.hideSubmit ? '' : `<button class="btn p">${T(o.ok || 'Save')}</button>`}</div>`}`;
@@ -256,7 +264,9 @@ try {
 const curPt = () => D.pt.find((x) => x.id == pdId);
 const jd = (r) => { try { return JSON.parse(r.data || '{}'); } catch { return {}; } };
 async function loadRecs() {
-  recs = await api('GET', 'records?patient_id=' + pdId + '&limit=5000');
+  recs = (await api('GET', 'records?patient_id=' + pdId + '&limit=5000'))
+    .slice()
+    .sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0) || (b.date || '').localeCompare(a.date || ''));
   D.billing = D.billing.filter((r) => String(r.patient_id) != String(pdId) || !['schedule', 'payment', 'investigation', 'lab', 'prescription', 'medlist'].includes(r.kind))
     .concat(recs.filter((r) => ['schedule', 'payment', 'investigation', 'lab', 'prescription', 'medlist'].includes(r.kind)));
 }
@@ -3301,9 +3311,9 @@ function histPrint() {
 // ---------- Treatment Schedule: named schedules (tabs), rows with amount and done tick, invoice, print ----------
 let sch = 'Standard';
 const sName = (r) => r.title || 'Standard';
-const schNames = () => { const s = new Set(['Standard']); recs.filter((r) => r.kind == 'schedule' || r.kind == 'schedulenote').forEach((r) => s.add(sName(r))); return [...s]; };
-const schRows = () => recs.filter((r) => r.kind == 'schedule' && sName(r) == sch).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-const schNote = () => recs.find((r) => r.kind == 'schedulenote' && sName(r) == sch);
+const schNames = () => { const s = new Set(['Standard']); recs.filter((r) => (r.kind == 'schedule' || r.kind == 'schedulenote') && (!pdId || Number(r.patient_id) == Number(pdId))).forEach((r) => s.add(sName(r))); return [...s]; };
+const schRows = () => recs.filter((r) => r.kind == 'schedule' && (!pdId || Number(r.patient_id) == Number(pdId)) && sName(r) == sch).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+const schNote = () => recs.find((r) => r.kind == 'schedulenote' && (!pdId || Number(r.patient_id) == Number(pdId)) && sName(r) == sch);
 const schTotal = () => schRows().reduce((t, r) => t + (+jd(r).amount || 0), 0);
 const schBillable = (r) => { const d = jd(r); const billable = d.billable; return billable === true || billable === 1 || billable === '1'; };
 const schRate = () => +((D.clinic || {}).rate) || 4000;
@@ -4701,7 +4711,7 @@ async function payForm(pid, payAll = false) {
       if (!['Cash', 'Bank'].includes(method)) throw new Error('Choose a payment method');
       const outstandingItems = billingOutstandingItems(liveList);
       await api('POST', 'records', { patient_id: livePid, kind: 'payment', date: ymd(new Date()), data: { amount: amt, applied_amount: amt, method, item_count: outstandingItems.length, paid_at: nowLocal() } });
-      await load(); if (rt == 'pd' && pdId == livePid) await loadRecs(); render(); toast('Saved');
+      await load(); if (pdId == livePid) await loadRecs(); render(); toast('Saved');
     }, { cls: 'wide', ok: 'Save' });
     return;
   }
@@ -4762,7 +4772,7 @@ async function payForm(pid, payAll = false) {
         return { category: item.category, name: item.name, price: item.price, discount: discountAmount + allItemDiscounts[index], discount_item: discountAmount, discount_all: allItemDiscounts[index], quantity: item.quantity || 1, unitPrice: item.unitPrice ?? item.price };
       })
     } });
-    await load(); if (rt == 'pd' && pdId == livePid) await loadRecs(); render(); toast('Saved');
+    await load(); if (pdId == livePid) await loadRecs(); render(); toast('Saved');
   }, { cls: 'wide payall-dialog', ok: payAllLabel('បញ្ជាក់ការទូទាត់', 'Confirm payment'), close: true, closeLabel: payAllLabel('បិទ', 'Close') });
   $('#mf').dataset.payallDue = String(liveDue);
   payAllRefresh();
@@ -4896,11 +4906,16 @@ function billingLineItems(list) {
     const d = jd(r);
     if (r.kind == 'schedule' && schBillable(r)) return [{ category: 'Treatment Charges', name: [d.selection, d.treatment_type, d.diagnosis || d.dx, r.notes].filter(Boolean).join(' — ') || r.title || 'Treatment charge', price: +d.amount || 0 }];
     if (r.kind == 'lab') {
-      if (Array.isArray(d.tests) && d.tests.length) return d.tests.flatMap((test, itemIndex) => {
-        const quantity = Math.max(0, test.quantity == null ? 1 : Number(test.quantity) || 0), unitPrice = +test.price || 0;
-        if (!quantity) return [];
-        return [{ category: 'Lab Charges', name: test.name || d.test_name || r.title || T('Lab result'), price: unitPrice * quantity, quantity, unitPrice, recordId: r.id, itemIndex }];
-      });
+      if (Array.isArray(d.tests)) {
+        if (!d.tests.length) return [];
+        const templatePanel = d.tests.length > 1 && d.tests.every((test) => test && test.template_id != null);
+        if (templatePanel && d.tests.every((test) => Math.max(0, test.quantity == null ? 1 : Number(test.quantity) || 0) <= 0)) return [];
+        return d.tests.flatMap((test, itemIndex) => {
+          const quantity = Math.max(0, test.quantity == null ? 1 : Number(test.quantity) || 0), unitPrice = +test.price || 0;
+          if (!quantity) return [];
+          return [{ category: 'Lab Charges', name: test.name || d.test_name || r.title || T('Lab result'), price: unitPrice * quantity, quantity, unitPrice, recordId: r.id, itemIndex }];
+        });
+      }
       const quantity = Math.max(0, d.quantity == null ? 1 : Number(d.quantity) || 0), unitPrice = Number(d.unit_price ?? d.price) || 0;
       return unitPrice > 0 ? [{ category: 'Lab Charges', name: d.test_name || r.title || T('Lab result'), price: unitPrice * quantity, quantity, unitPrice, recordId: r.id, itemIndex: 0 }] : [];
     }
@@ -4935,7 +4950,12 @@ function billingOutstandingItems(list) {
     return { ...item, price: item.price - applied };
   }).filter((item) => item.price > 0);
 }
-const billTotals = (list) => { const ch = billingLineItems(list).reduce((t, item) => t + item.price, 0), pd = list.filter((r) => r.kind == 'payment').reduce((t, r) => t + paymentAmount(jd(r)), 0); return { ch, pd, bal: Math.max(0, ch - pd) }; };
+const billTotals = (list) => {
+  const outstanding = billingOutstandingItems(list);
+  const ch = outstanding.reduce((t, item) => t + item.price, 0);
+  const pd = list.filter((r) => r.kind == 'payment').reduce((t, r) => t + paymentAmount(jd(r)), 0);
+  return { ch, pd, bal: Math.max(0, ch) };
+};
 function paidHistoryDate(record, data) {
   const paidAt = String(data.paid_at || ''), time = paidAt.includes('T') ? paidAt.slice(11, 16) : '';
   return `<span class="bill-payment-date"><span>${esc(record.date || paidAt.slice(0, 10) || '')}</span><small>${esc(time || '—')}</small></span>`;
@@ -4997,11 +5017,43 @@ async function changeLabQuantity(recordId, itemIndex, delta) {
   const record = recs.find((item) => String(item.id) == String(recordId) && item.kind == 'lab');
   if (!record) throw new Error(T('Lab result not found'));
   const data = jd(record);
-  if (Array.isArray(data.tests) && data.tests.length) {
-    const test = data.tests[itemIndex];
-    if (!test) throw new Error(T('Lab charge item not found'));
-    test.quantity = Math.max(0, (test.quantity == null ? 1 : Number(test.quantity) || 0) + delta);
-    data.price = data.tests.reduce((sum, item) => sum + (Number(item.price) || 0) * Math.max(0, item.quantity == null ? 1 : Number(item.quantity) || 0), 0);
+  if (Array.isArray(data.tests)) {
+    if (!data.tests.length) {
+      if (delta <= 0) {
+        data.price = 0;
+      } else {
+        const unitPrice = Number(data.unit_price ?? data.price) || 0;
+        data.tests = [{ name: data.test_name || record.title || T('Lab result'), price: unitPrice, quantity: 1 }];
+        data.price = unitPrice;
+      }
+    } else {
+      const templatePanel = data.tests.length > 1 && data.tests.every((test) => test && test.template_id != null);
+      let test = templatePanel ? data.tests[0] : data.tests[itemIndex];
+      if (!test && delta > 0) {
+        const unitPrice = Number(data.tests[0]?.price ?? data.unit_price ?? data.price) || 0;
+        const restoredName = data.tests[0]?.name || data.test_name || record.title || T('Lab result');
+        test = { name: restoredName, price: unitPrice, quantity: 0 };
+        data.tests.splice(itemIndex, 0, test);
+      }
+      if (!test) throw new Error(T('Lab charge item not found'));
+      const previousQuantity = test.quantity == null ? 1 : Number(test.quantity) || 0;
+      test.quantity = Math.max(0, previousQuantity + delta);
+      if (templatePanel) {
+        if (previousQuantity <= 0 && delta > 0) {
+          data.tests = data.tests.map((row) => ({ ...row, quantity: 1 }));
+        }
+        if (test.quantity <= 0) {
+          data.tests = data.tests.map((row) => ({ ...row, quantity: 0 }));
+          data.price = 0;
+        } else {
+          data.quantity = data.tests.reduce((sum, item) => sum + Math.max(0, item.quantity == null ? 1 : Number(item.quantity) || 0), 0);
+          data.price = data.tests.reduce((sum, item) => sum + (Number(item.price) || 0) * Math.max(0, item.quantity == null ? 1 : Number(item.quantity) || 0), 0);
+        }
+      } else {
+        data.quantity = data.tests.reduce((sum, item) => sum + Math.max(0, item.quantity == null ? 1 : Number(item.quantity) || 0), 0);
+        data.price = data.tests.reduce((sum, item) => sum + (Number(item.price) || 0) * Math.max(0, item.quantity == null ? 1 : Number(item.quantity) || 0), 0);
+      }
+    }
   } else {
     if (itemIndex != 0 || !(Number(data.price) > 0)) throw new Error(T('Lab charge item not found'));
     const unitPrice = Number(data.unit_price ?? data.price) || 0;

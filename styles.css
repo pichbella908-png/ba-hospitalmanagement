@@ -7531,7 +7531,7 @@ body.sbc aside {
 .patient-table-wrap {
   width: 100%;
   min-width: 0;
-  overflow-x: hidden;
+  overflow-x: auto;
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
 }
@@ -7611,7 +7611,7 @@ body.sbc aside {
 }
 table.ptb {
   width: 100%;
-  min-width: 0;
+  min-width: 1360px;
   table-layout: fixed;
   font-size: 11px;
 }
@@ -7720,6 +7720,12 @@ table.ptb .pn > div {
   min-width: 70px;
 }
 @media (max-width: 820px) {
+  .patient-list-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
   .patient-list-primary-tools,
   .patient-list-actions {
     display: flex;
@@ -7765,11 +7771,11 @@ table.ptb .pn > div {
   }
   .patient-table-wrap {
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: auto;
   }
   table.ptb {
     width: 100%;
-    min-width: 0;
+    min-width: 1360px;
     table-layout: fixed;
   }
   table.ptb th {
@@ -7801,6 +7807,68 @@ table.ptb .pn > div {
   table.ptb .pt-col-phone {
     min-width: 104px;
   }
+  table.ptb .pt-col-act {
+    min-width: 110px;
+  }
+}
+@media (max-width: 560px) {
+  .top {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .top span {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #v {
+    padding: 10px;
+  }
+  .patient-list-toolbar {
+    gap: 8px;
+  }
+  .patient-list-primary-tools {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+  .patient-list-primary-tools #q {
+    min-width: 0;
+  }
+  .patient-list-primary-tools > .btn {
+    min-height: 42px;
+    padding: 0 14px;
+  }
+  .patient-list-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+  .patient-list-actions > .btn {
+    width: 100%;
+    min-height: 40px;
+    padding: 8px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .patient-list-toolbar > .tabs {
+    width: 100%;
+  }
+  .patient-list-toolbar > .tabs button {
+    min-height: 36px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  table.ptb {
+    min-width: 1360px;
+    font-size: 12px;
+  }
+  table.ptb .pt-col-name,
+  table.ptb .pt-col-followup,
+  table.ptb .pt-col-phone,
   table.ptb .pt-col-act {
     min-width: 110px;
   }

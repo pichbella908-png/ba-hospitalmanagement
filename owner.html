@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>System owner database settings</title>
+  <style>
+    :root{font-family:Inter,Arial,sans-serif;color:#14263a;background:#edf5f8;font-synthesis:none}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;padding:28px 16px;background:linear-gradient(145deg,#dff3f3,#edf3fb 60%,#e5edf8)}
+    main{width:min(1040px,100%);margin:0 auto}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 0 20px}
+    h1{font-size:clamp(24px,4vw,34px);margin:0 0 6px}
+    h2{font-size:20px;margin:0 0 8px}
+    p{line-height:1.55}
+    .muted{color:#607287;margin:0}
+    .back{color:#1454a0;text-decoration:none;font-weight:700;white-space:nowrap}
+    .card{background:#fff;border:1px solid #dce5ed;border-radius:16px;padding:22px;margin:16px 0;box-shadow:0 8px 26px #18344b0c}
+    form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    label{display:grid;gap:6px;font-size:14px;font-weight:700}
+    input{width:100%;min-width:0;border:1px solid #cbd6e1;border-radius:9px;padding:11px 12px;font:inherit;color:inherit}
+    input:focus{outline:3px solid #1f7add30;border-color:#2076cf}
+    button,.button{border:0;border-radius:9px;padding:10px 14px;font:inherit;font-weight:700;cursor:pointer;background:#176bc1;color:#fff}
+    button:disabled{opacity:.6;cursor:wait}
+    .secondary{background:#e8f0f8;color:#194b7e}
+    .danger{background:#b42332}
+    .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .form-actions{grid-column:1/-1}
+    .message{margin:12px 0 0;font-weight:600}
+    .message.error{color:#a51d2d}
+    .message.success{color:#17643a}
+    .table-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:640px}
+    th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e6ecf1;vertical-align:middle}
+    th{font-size:13px;color:#586b7f}
+    td small{display:block;color:#63768a;margin-top:3px}
+    .empty{text-align:center;color:#687b8f;padding:24px}
+    [hidden]{display:none!important}
+    @media(max-width:620px){
+      body{padding:18px 12px}
+      .card{padding:17px}
+      header{align-items:flex-start}
+      form{grid-template-columns:1fr}
+      .form-actions{grid-column:auto}
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Clinic database management</h1>
+        <p class="muted">Restricted system-owner tools for clinic databases.</p>
+      </div>
+      <a class="back" href="index.html">← Clinic sign in</a>
+    </header>
+
+    <section id="owner-login" class="card">
+      <h2>System owner sign in</h2>
+      <p class="muted">Use the credentials configured on the backend. Clinic accounts cannot access these controls.</p>
+      <form id="login-form">
+        <label>Email
+          <input id="owner-email" type="email" value="tepsochet70@gmail.com" autocomplete="username" required maxlength="254">
+        </label>
+        <label>Password
+          <input id="owner-password" type="password" autocomplete="current-password" required>
+        </label>
+        <div class="form-actions"><button type="submit">Sign in</button></div>
+      </form>
+      <p id="login-message" class="message" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="owner-console" hidden>
+      <div class="actions" style="justify-content:space-between;margin:16px 0">
+        <p class="muted">Provisioning creates a clinic database and its first clinic administrator.</p>
+        <div class="actions">
+          <button id="refresh-clinics" type="button" class="secondary">Refresh</button>
+          <button id="owner-logout" type="button" class="secondary">Sign out</button>
+        </div>
+      </div>
+      <section class="card">
+        <h2>Create a clinic database</h2>
+        <form id="clinic-form">
+          <label>Clinic name
+            <input name="clinic_name" required maxlength="150">
+          </label>
+          <label>Administrator name
+            <input name="name" required maxlength="100">
+          </label>
+          <label>Administrator email
+            <input name="email" type="email" required maxlength="254">
+          </label>
+          <label>Administrator password
+            <input name="password" type="password" required minlength="8" maxlength="256" autocomplete="new-password">
+          </label>
+          <div class="form-actions"><button type="submit">Create clinic and database</button></div>
+        </form>
+        <p id="create-message" class="message" role="status" aria-live="polite"></p>
+      </section>
+      <section class="card">
+        <h2>Registered clinic databases</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Clinic</th><th>Database</th><th>Created</th><th>Actions</th></tr></thead>
+            <tbody id="clinic-list"><tr><td class="empty" colspan="4">Loading clinics…</td></tr></tbody>
+          </table>
+        </div>
+        <p id="clinic-message" class="message" role="status" aria-live="polite"></p>
+      </section>
+    </section>
+  </main>
+  <script>
+    const privateIPv4 = /^(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})$/.test(location.hostname);
+    const localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.endsWith('.local') || privateIPv4;
+    window.API_BASE = localHost || location.hostname.endsWith('.synology.me') ? '' : 'https://ba-hospitalmanagement-backend.onrender.com';
+  </script>
+  <script src="owner.js"></script>
+</body>
+</html>

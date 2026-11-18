@@ -654,6 +654,11 @@ set(){
       <div class="clinic-settings-save"><button class="btn p" data-a="saveclinic">▣ រក្សាទុកការកំណត់</button></div>
     </div></div>`:canAccess('clinic_settings')?`<div class="card"><h3>${esc(c.name||'Clinic settings')}</h3><p>${esc(c.specialty||'')}</p><p>${esc(c.address||'')}</p><p>${esc(c.phone||'')}</p></div>`:''}
     ${userManagementHtml()}
+    <section class="card" style="padding:16px;margin-top:16px">
+      <h3>System owner settings</h3>
+      <p class="mu">Manage clinic databases through the separate system-owner sign-in.</p>
+      <a class="btn" href="owner.html" style="display:inline-block;text-decoration:none">Open database management</a>
+    </section>
   </section>`;
 },
 dash(){const ip=D.ipd.filter(r=>!r.out).length,ad={},adPatients={},ag={'0-10':0,'11-20':0,'21-30':0,'31-40':0,'41-50':0,'51+':0},agePatients={},inR=p=>{const d=(p.reg_date||p.created_at||'').slice(0,10);return(!dFrom||d>=dFrom)&&(!dTo||d<=dTo)},P2=D.pt.filter(inR);

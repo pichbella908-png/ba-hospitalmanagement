@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Clinic signup approval</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, Arial, sans-serif; color: #172033; background: #eef4f8; }
+    body { min-height: 100vh; display: grid; place-items: center; margin: 0; padding: 20px; box-sizing: border-box; }
+    main { width: min(520px, 100%); box-sizing: border-box; padding: 32px; border-radius: 16px; background: #fff; box-shadow: 0 12px 36px #1720331a; }
+    h1 { margin: 0 0 12px; font-size: 24px; }
+    #details { line-height: 1.65; }
+    #status { min-height: 24px; color: #475569; }
+    .actions { display: flex; gap: 12px; margin-top: 24px; }
+    #actions[hidden] { display: none; }
+    button { flex: 1; border: 0; border-radius: 8px; padding: 12px; color: #fff; background: #1769d2; font-size: 15px; font-weight: 700; cursor: pointer; }
+    button.reject { background: #b42318; }
+    button:disabled { opacity: .6; cursor: wait; }
+    @media (max-width: 460px) { main { padding: 24px; } .actions { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Clinic signup approval</h1>
+    <p id="status" role="status" aria-live="polite">Loading request…</p>
+    <div id="details"></div>
+    <div id="actions" class="actions" hidden>
+      <button id="approve" type="button">Approve clinic</button>
+      <button id="reject" class="reject" type="button">Reject request</button>
+    </div>
+  </main>
+  <script>
+    const privateIPv4 = /^(?:10(?:\.\d{1,3}){3}|192\.168(?:\.\d{1,3}){2}|172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2})$/.test(location.hostname);
+    const localHost = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.endsWith('.local') || privateIPv4;
+    window.API_BASE = localHost || location.hostname.endsWith('.synology.me') ? '' : 'https://ba-hospitalmanagement-backend.onrender.com';
+  </script>
+  <script src="approval.js"></script>
+</body>
+</html>

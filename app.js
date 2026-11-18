@@ -1368,10 +1368,30 @@ async function load(){
 }
 function logout(){tok=null;try{localStorage.removeItem('kt')}catch(e){}$('#lg').style.display='grid'}
 function setLoginLoading(loading){const overlay=$('#login-loading'),button=$('#login-submit');if(overlay)overlay.hidden=!loading;if(button)button.disabled=loading;const login=$('#lg');if(login)login.setAttribute('aria-busy',String(loading))}
-async function doLogin(){const email=$('#em').value.trim(),password=$('#pw').value;setLoginLoading(true);try{if(needSetup){await api('POST','auth/setup',{email,password});needSetup=false}const r=await api('POST','auth/login',{email,password});tok=r.token;try{localStorage.setItem('kt',tok)}catch(e){}await load();$('#lg').style.display='none';render()}catch(e){toast(normalizeRequestError(e))}finally{setLoginLoading(false)}}
+function setSignupMode(enabled){
+  const nameLabel=$('#signup-name-label'),name=$('#signup-name'),clinicLabel=$('#signup-clinic-label'),clinic=$('#signup-clinic'),remember=$('.remember'),title=$('#login-title'),description=$('#login-description'),button=$('#login-submit'),toggle=$('#signup-toggle'),password=$('#pw');
+  [nameLabel,name,clinicLabel,clinic].forEach(element=>{if(element)element.hidden=!enabled});
+  if(remember)remember.hidden=enabled;
+  if(title)title.textContent=enabled?'Create clinic account':'Sign in';
+  if(description)description.textContent=enabled?'Request an administrator account for your clinic.':'Please sign in to your account.';
+  if(button){button.textContent=enabled?'Request approval':'Sign in';button.dataset.a=enabled?'signup':'login'}
+  if(toggle)toggle.textContent=enabled?'Back to sign in':'Create a clinic account';
+  if(password)password.autocomplete=enabled?'new-password':'current-password';
+  const note=$('#ln');if(note)note.textContent=enabled?'Your clinic administrator account will be active after approval.':'Sign in with your clinic account.';
+}
+async function doLogin(){const email=$('#em').value.trim(),password=$('#pw').value;setLoginLoading(true);try{const r=await api('POST','auth/login',{email,password});tok=r.token;try{localStorage.setItem('kt',tok)}catch(e){}await load();$('#lg').style.display='none';render()}catch(e){toast(normalizeRequestError(e))}finally{setLoginLoading(false)}}
+async function doSignup(){
+  const body={name:$('#signup-name').value.trim(),clinic_name:$('#signup-clinic').value.trim(),email:$('#em').value.trim(),password:$('#pw').value};
+  setLoginLoading(true);
+  try{
+    const result=await api('POST','auth/signup',body);
+    setSignupMode(false);$('#pw').value='';$('#ln').textContent=result.message||'Signup request sent for approval.';
+  }catch(error){toast(normalizeRequestError(error))}
+  finally{setLoginLoading(false)}
+}
 const run=p=>p.then(()=>load()).then(render).catch(e=>toast(e.message));
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el){const picker=$('.language-picker');if(picker&&!picker.contains(e.target))closeLanguagePicker();const node=e.target.closest('[data-template-id]');if(node){templateSelection=node.dataset.templateId;templateInspector='properties';render()}else if(e.target.closest('[data-template-canvas]')){templateSelection=null;templateInspector='properties';render()}return}e.preventDefault();const[a,x,y]=el.dataset.a.split(':');if(!actionAllowed(a,x))return toast('You do not have permission to do that.');
-if(a=='login')doLogin();else if(a=='logout')logout();
+if(a=='login')doLogin();else if(a=='signup')doSignup();else if(a=='signup-toggle')setSignupMode($('#login-submit').dataset.a!='signup');else if(a=='logout')logout();
 else if(a=='reportrange')reportSetRange(x);
 else if(a=='reportapply'){reportQuery=$('#report-q').value.trim();reportFrom=$('#report-from').value;reportTo=$('#report-to').value;reportRange='';if(reportFrom&&reportTo&&reportFrom>reportTo)return toast('From date must not be after To date');render()}
 else if(a=='medreportapply')medicineReportApply();
@@ -1512,9 +1532,23 @@ document.addEventListener('click',event=>{const picker=$('.language-picker');if(
 document.addEventListener('keydown',event=>{const menu=$('.language-picker-menu');if(event.key=='Escape'&&menu&&!menu.hidden){closeLanguagePicker();$('.language-picker-trigger').focus()}});
 function setLang(l){lang=l;try{localStorage.setItem('kl',l)}catch(e){}document.documentElement.lang=l=='en'?'en':'km';syncLanguageToggle();if(tok)render();tr(document.body)}
 let _q=0;new MutationObserver(()=>{if(lang!='en'&&!_q){_q=1;requestAnimationFrame(()=>{_q=0;tr(document.body)})}}).observe(document.body,{childList:true,subtree:true});
+Object.assign(L,{
+  'Please sign in to your account.':'សូមចូលគណនីរបស់អ្នក។',
+  'Request an administrator account for your clinic.':'ស្នើសុំគណនីអ្នកគ្រប់គ្រងសម្រាប់គ្លីនិករបស់អ្នក។',
+  'Create a clinic account':'បង្កើតគណនីគ្លីនិក',
+  'Administrator name':'ឈ្មោះអ្នកគ្រប់គ្រង',
+  'Your name':'ឈ្មោះរបស់អ្នក',
+  'Request approval':'ស្នើសុំការអនុម័ត',
+  'Back to sign in':'ត្រឡប់ទៅចូលគណនី',
+  'Your clinic administrator account will be active after approval.':'គណនីអ្នកគ្រប់គ្រងគ្លីនិករបស់អ្នកនឹងដំណើរការបន្ទាប់ពីបានអនុម័ត។',
+  'New clinic accounts require approval before sign-in.':'គណនីគ្លីនិកថ្មីត្រូវការការអនុម័តមុនពេលចូល។',
+  'Signup request sent for approval. You can sign in after the approver approves it.':'បានផ្ញើសំណើចុះឈ្មោះដើម្បីរង់ចាំការអនុម័ត។ អ្នកអាចចូលបានបន្ទាប់ពីអ្នកអនុម័តអនុម័តសំណើ។',
+  'This account is awaiting approval':'គណនីនេះកំពុងរង់ចាំការអនុម័ត',
+  'First run: choose the admin email and a password (8+ characters).':'គណនីគ្លីនិកថ្មីត្រូវការការអនុម័តមុនពេលចូល។',
+});
 /*END*/
 document.documentElement.lang=lang=='en'?'en':'km';syncLanguageToggle();tr(document.body);
-(async()=>{try{const st=await fetch(API_BASE+'/api/auth/status').then(r=>r.json());needSetup=st.needsSetup;if(needSetup)$('#ln').textContent='First run: choose the admin email and a password (8+ characters).';if(tok&&!needSetup){
+(async()=>{try{const st=await fetch(API_BASE+'/api/auth/status').then(r=>r.json());needSetup=st.needsSetup;if(needSetup)$('#ln').textContent='New clinic accounts require approval before sign-in.';if(tok){
   await load();
   restorePageState();
   if(doctorProfileId!=null&&!D.dr.some(doctor=>doctor.id==doctorProfileId))doctorProfileId=null;

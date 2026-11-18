@@ -30,15 +30,21 @@
                 </div>
             </div>
             <div class="lr">
-                <h2>Sign in</h2>
-                <p class="mu">Please sign in to your account.</p>
+                <h2 id="login-title">Sign in</h2>
+                <p id="login-description" class="mu">Please sign in to your account.</p>
+                <label id="signup-name-label" for="signup-name" hidden>Administrator name</label>
+                <input id="signup-name" class="in" placeholder="Your name" autocomplete="name" maxlength="100" hidden>
+                <label id="signup-clinic-label" for="signup-clinic" hidden>Clinic name</label>
+                <input id="signup-clinic" class="in" placeholder="Clinic name" autocomplete="organization" maxlength="150" hidden>
                 <label>Email</label>
-                <input id="em" class="in" placeholder="Email address">
+                <input id="em" type="email" class="in" placeholder="Email address" autocomplete="email" maxlength="254">
                 <label>Password</label>
-                <input id="pw" type="password" class="in" placeholder="Account password">
+                <input id="pw" type="password" class="in" placeholder="Account password" autocomplete="current-password" minlength="8">
                 <label class="remember"><input type="checkbox"> Remember me</label>
                 <button id="login-submit" data-a="login">Sign in</button>
-                <p class="mu alt-text"><span id="ln">Sign in with your clinic account.</span></p>
+                <p class="mu alt-text"><span id="ln">Sign in with your clinic account.</span>
+                    <button id="signup-toggle" class="login-mode-switch" type="button" data-a="signup-toggle">Create a clinic account</button>
+                </p>
             </div>
         </div>
         <div id="login-loading" class="login-loading" role="status" aria-live="polite" hidden>

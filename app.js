@@ -621,7 +621,7 @@ med(){const rows=ft('med');return hd('Medicines','Manage your pharmacy list.',sr
 dx(){const rows=ft('dx');return hd('Diagnosis','Diagnoses available when writing a visit.',`<button class="btn diagnosis-secondary" data-a="go:sy">☰ Symptoms List</button><button class="btn diagnosis-icon" data-a="dximport" title="Import diagnoses">⇪</button><button class="btn diagnosis-icon" data-a="dxexport" title="Export diagnoses">⇩</button><button class="btn diagnosis-primary" data-a="add:dx" title="${T('New Diagnosis')}">＋ ${T('New Diagnosis')}</button><input id="dx-import-file" type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" hidden>`)+`<div class="diagnosis-shell"><div class="diagnosis-search"><span class="diagnosis-search-icon">⌕</span><input id="q" class="diagnosis-input" placeholder="Search diagnoses..." value="${esc(q)}"></div><div class="diagnosis-list">${rows.length?rows.map(([r,i])=>`<div class="diagnosis-row"><span class="diagnosis-name">${esc(r.name)}</span><div class="diagnosis-actions"><button class="btn diagnosis-edit" data-a="edit:dx:${i}">Edit</button><button class="btn diagnosis-delete" data-a="del:dx:${i}" aria-label="Delete ${esc(r.name)}">🗑</button></div></div>`).join(''):`<div class="diagnosis-empty">Nothing here yet.</div>`}</div></div>`;},
 rx(){const rows=ft('rx');return hd('Prescription Template','',sr('Search by disease name...')+ex+`<button class="btn g" data-a="add:rx">＋ Add Template</button>`)+`<div class="card rx-template-list-wrap"><table class="rx-template-list"><thead><tr><th>Disease Name</th><th>Medicines</th><th>Actions</th></tr></thead><tbody>${rows.map(([template,index])=>`<tr><td><b>${esc(template.name)}</b></td><td>${esc(rxTemplateMeds(template.meds).map(medicine=>medicine.name).join(', '))}</td><td><button class="btn s" data-a="edit:rx:${index}" aria-label="Edit template">Edit</button> <button class="btn s r" data-a="del:rx:${index}" aria-label="Delete template">×</button></td></tr>`).join('')||'<tr><td colspan="3" class="emp">Nothing here yet.</td></tr>'}</tbody></table></div>`},
 set(){
-  const c=D.clinic||{},footerMode=c.footer_banner_mode==='text'||(!c.footer_banner_mode&&c.footer_banner_text)?'text':'image',ck=(key,label,help)=>`<label class="clinic-settings-toggle"><input type="checkbox" name="${key}" ${c[key]?'checked':''}><span><b>${label}</b><small>${help}</small></span></label>`;
+  const c=D.clinic||{},ownerSettings=String(D.user.email||'').trim().toLowerCase()==='tepsochet70@gmail.com',footerMode=c.footer_banner_mode==='text'||(!c.footer_banner_mode&&c.footer_banner_text)?'text':'image',ck=(key,label,help)=>`<label class="clinic-settings-toggle"><input type="checkbox" name="${key}" ${c[key]?'checked':''}><span><b>${label}</b><small>${help}</small></span></label>`;
   const field=(label,key,icon='')=>`<label class="clinic-settings-field"><span>${icon?`<i aria-hidden="true">${icon}</i>`:''}${label}</span><input class="in" name="${key}" value="${esc(c[key]||'')}"></label>`;
   return `<section class="clinic-settings-page">
     <header class="clinic-settings-heading"><div><h1>ការកំណត់គ្លីនិក</h1><p>គ្រប់គ្រងព័ត៌មានមូលដ្ឋានរបស់គ្លីនិកអ្នក។</p></div>
@@ -654,11 +654,11 @@ set(){
       <div class="clinic-settings-save"><button class="btn p" data-a="saveclinic">▣ រក្សាទុកការកំណត់</button></div>
     </div></div>`:canAccess('clinic_settings')?`<div class="card"><h3>${esc(c.name||'Clinic settings')}</h3><p>${esc(c.specialty||'')}</p><p>${esc(c.address||'')}</p><p>${esc(c.phone||'')}</p></div>`:''}
     ${userManagementHtml()}
-    <section class="card" style="padding:16px;margin-top:16px">
+    ${ownerSettings?`<section class="card" style="padding:16px;margin-top:16px">
       <h3>System owner settings</h3>
       <p class="mu">Manage clinic databases through the separate system-owner sign-in.</p>
       <a class="btn" href="owner.html" style="display:inline-block;text-decoration:none">Open database management</a>
-    </section>
+    </section>`:''}
   </section>`;
 },
 dash(){const ip=D.ipd.filter(r=>!r.out).length,ad={},adPatients={},ag={'0-10':0,'11-20':0,'21-30':0,'31-40':0,'41-50':0,'51+':0},agePatients={},inR=p=>{const d=(p.reg_date||p.created_at||'').slice(0,10);return(!dFrom||d>=dFrom)&&(!dTo||d<=dTo)},P2=D.pt.filter(inR);
